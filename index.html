@@ -15,7 +15,7 @@
 <!-- Inline web manifest (data URI) so the page is installable as a PWA without extra files -->
 <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"Collage Composer","short_name":"Composer","start_url":".","display":"standalone","background_color":"#0a0a0a","theme_color":"#0a0a0a","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 fill=%27%230a0a0a%27/%3E%3Crect x=%2780%27 y=%27120%27 width=%27150%27 height=%27180%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27282%27 y=%27120%27 width=%27150%27 height=%27180%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27130%27 y=%27360%27 width=%27252%27 height=%2714%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27100%27 y=%27400%27 width=%27312%27 height=%2714%27 fill=%27%23e0e0e0%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}'>
 
-<link href="https://fonts.googleapis.com/css2?family=VT323&family=Dancing+Script:wght@600&family=Tinos:ital,wght@0,400;0,700&family=Arimo:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Parisienne&family=Tinos:ital,wght@0,400;0,700&family=Arimo:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -285,7 +285,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // Each stack prefers the native font, then a metric-compatible web fallback.
 const FONTS = {
   vt323:   { label: 'Terminal (VT323)', stack: "'VT323', monospace",             load: 'VT323' },
-  cursive: { label: 'Cursive',          stack: "'Dancing Script', cursive",       load: 'Dancing Script' },
+  cursive: { label: 'Cursive',          stack: "'Parisienne', cursive",       load: 'Parisienne' },
   serif:   { label: 'Serif (Times)',    stack: "'Times New Roman', Tinos, serif", load: 'Tinos' },
   sans:    { label: 'Sans (Arial)',     stack: "Arial, Arimo, sans-serif",        load: 'Arimo' },
 };
