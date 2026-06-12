@@ -463,6 +463,40 @@ async function drawCanvas() {
   } else {
     drawRandom(ctx, size, imgs, texts);
   }
+
+  // Signature watermark, painted last so it always sits on top
+  drawWatermark(ctx, size);
+}
+
+// Spiral signature mark in the bottom-right corner of every collage
+function drawWatermark(ctx, size) {
+  const wmSize = size * 0.13;       // ~13% of the canvas
+  const maxR = wmSize / 2;
+  const margin = size * 0.03;       // inset from the right/bottom edges
+  const cx = size - margin - maxR;
+  const cy = size - margin - maxR;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(110, 110, 110, 0.85)';
+  ctx.lineWidth = Math.max(2, size * 0.0045);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Archimedean spiral: r grows linearly with angle
+  const turns = 4;
+  const rot = -Math.PI * 0.5;       // orient the tail toward the top
+  const b = maxR / (turns * 2 * Math.PI);
+  ctx.beginPath();
+  let first = true;
+  for (let a = 0; a <= turns * 2 * Math.PI; a += 0.18) {
+    const r = b * a;
+    const x = cx + r * Math.cos(a + rot);
+    const y = cy + r * Math.sin(a + rot);
+    if (first) { ctx.moveTo(x, y); first = false; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 function loadImage(src) {
