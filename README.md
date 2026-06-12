@@ -1,10 +1,10 @@
-# Nightly Composer
+# Collage Composer
 
 A single-file photo composition web app — a low-friction nightly creative ritual.
 Pick a background, choose a layout, drop in a couple of photos, write a line or two,
 generate a 1080×1080 image, save it. No accounts, no persistence, no build step.
 
-**Live site:** https://ojuliaspinola.github.io/Nightly-Composer/
+**Live site:** https://ojuliaspinola.github.io/Collage-Composer/
 
 ## Local preview
 
