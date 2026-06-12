@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Nightly Composer</title>
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Composer">
+
+<!-- Inline SVG icon (used by manifest + as favicon) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%230a0a0a'/%3E%3Crect x='80' y='120' width='150' height='180' fill='%23e0e0e0'/%3E%3Crect x='282' y='120' width='150' height='180' fill='%23e0e0e0'/%3E%3Crect x='130' y='360' width='252' height='14' fill='%23e0e0e0'/%3E%3Crect x='100' y='400' width='312' height='14' fill='%23e0e0e0'/%3E%3C/svg%3E">
+
+<!-- Inline web manifest (data URI) so the page is installable as a PWA without extra files -->
+<link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"Nightly Composer","short_name":"Composer","start_url":".","display":"standalone","background_color":"#0a0a0a","theme_color":"#0a0a0a","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 fill=%27%230a0a0a%27/%3E%3Crect x=%2780%27 y=%27120%27 width=%27150%27 height=%27180%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27282%27 y=%27120%27 width=%27150%27 height=%27180%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27130%27 y=%27360%27 width=%27252%27 height=%2714%27 fill=%27%23e0e0e0%27/%3E%3Crect x=%27100%27 y=%27400%27 width=%27312%27 height=%2714%27 fill=%27%23e0e0e0%27/%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}'>
+
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: 'VT323', monospace;
+    padding: 24px;
+    max-width: 600px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  h1 { font-size: 32px; margin: 0 0 8px; letter-spacing: 2px; }
+  h2 { font-size: 24px; margin: 0 0 16px; font-weight: normal; }
+  .step-label { font-size: 20px; opacity: 0.6; margin-bottom: 32px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .format-btn {
+    display: block;
+    width: 100%;
+    padding: 20px;
+    margin-bottom: 12px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    color: #e0e0e0;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .upload-block { margin-bottom: 20px; }
+  .upload-label { font-size: 20px; margin-bottom: 8px; }
+  input[type="file"] {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: #1a1a1a;
+    border: 2px dashed #444;
+    color: #e0e0e0;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+  }
+  .preview-img {
+    width: 100%;
+    margin-top: 8px;
+    max-height: 200px;
+    object-fit: cover;
+  }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 16px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    color: #e0e0e0;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    resize: vertical;
+  }
+  .btn-row { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+  .btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 16px;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-primary {
+    background: #e0e0e0;
+    color: #0a0a0a;
+  }
+  .btn-primary:disabled { opacity: 0.4; }
+  .btn-secondary {
+    background: transparent;
+    color: #e0e0e0;
+    border: 2px solid #333;
+  }
+  canvas {
+    width: 100%;
+    max-width: 500px;
+    border: 2px solid #333;
+    display: block;
+    margin-bottom: 16px;
+  }
+  .hint { font-size: 16px; opacity: 0.5; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>NIGHTLY COMPOSER</h1>
+<p class="step-label">Step <span id="stepNum">1</span> of 5</p>
+
+<!-- Step 1: Background -->
+<div class="screen active" id="screen1">
+  <h2>1. Choose background</h2>
+  <div class="upload-block">
+    <div class="upload-label">Background image <span id="bgCheck"></span></div>
+    <input type="file" accept="image/*" id="bgFile">
+    <img class="preview-img" id="bgPreview" style="display:none">
+  </div>
+  <div style="margin-top:8px;">
+    <button class="btn btn-secondary" id="bgWhiteBtn" style="width:100%;">Or use plain white</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="toStep2" onclick="goToStep(2)" disabled>Next</button>
+  </div>
+</div>
+
+<!-- Step 2: Format -->
+<div class="screen" id="screen2">
+  <h2>2. Choose format</h2>
+  <button class="format-btn" data-format="two-up">Two photos + text</button>
+  <button class="format-btn" data-format="three-up">Three photos + text</button>
+  <button class="format-btn" data-format="text-wrap">One photo + wrapping text</button>
+  <button class="format-btn" data-format="overlap">Two overlapping photos + text</button>
+  <button class="format-btn" data-format="randomizer">Randomizer (two photos, two text lines)</button>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
+  </div>
+</div>
+
+<!-- Step 3: Upload photos -->
+<div class="screen" id="screen3">
+  <h2>3. Upload photos</h2>
+  <div id="uploadSlots"></div>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
+    <button class="btn btn-primary" id="toStep4" onclick="goToStep(4)" disabled>Next</button>
+  </div>
+</div>
+
+<!-- Step 4: Text -->
+<div class="screen" id="screen4">
+  <h2>4. Write text</h2>
+  <textarea id="textInput" placeholder="Type your text..."></textarea>
+  <textarea id="textInput2" placeholder="Second line of text..." style="display:none;margin-top:12px;"></textarea>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goToStep(3)">Back</button>
+    <button class="btn btn-primary" id="generateBtn" onclick="generate()" disabled>Generate</button>
+  </div>
+</div>
+
+<!-- Step 5: Result -->
+<div class="screen" id="screen5">
+  <h2>5. Download</h2>
+  <canvas id="canvas"></canvas>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="downloadImage()">Save Image</button>
+    <button class="btn btn-secondary" id="rerollBtn" onclick="rerollRandomizer()" style="display:none;">Re-roll</button>
+    <button class="btn btn-secondary" onclick="goToStep(4)">Edit text</button>
+    <button class="btn btn-secondary" onclick="reset()">Start over</button>
+  </div>
+</div>
+
+<script>
+let state = {
+  step: 1,
+  background: null,
+  format: 'two-up',
+  slots: 2,
+  photos: [],
+  text: '',
+  text2: '',
+  seed: 0
+};
+
+const FORMAT_SLOTS = {
+  'two-up': 2,
+  'three-up': 3,
+  'text-wrap': 1,
+  'overlap': 2,
+  'randomizer': 2,
+};
+
+function goToStep(n) {
+  state.step = n;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen' + n).classList.add('active');
+  document.getElementById('stepNum').textContent = n;
+  if (n === 5) {
+    setTimeout(drawCanvas, 50);
+  }
+}
+
+// Background upload
+document.getElementById('bgFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.background = ev.target.result;
+    document.getElementById('bgCheck').textContent = '✓';
+    const img = document.getElementById('bgPreview');
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    document.getElementById('toStep2').disabled = false;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('bgWhiteBtn').addEventListener('click', () => {
+  state.background = null;
+  document.getElementById('bgCheck').textContent = '(white)';
+  document.getElementById('bgPreview').style.display = 'none';
+  document.getElementById('toStep2').disabled = false;
+});
+
+// Format selection
+document.querySelectorAll('.format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.format = btn.dataset.format;
+    state.slots = FORMAT_SLOTS[state.format];
+    state.photos = new Array(state.slots).fill(null);
+    renderUploadSlots();
+    // Show/hide second text input based on format
+    const t2 = document.getElementById('textInput2');
+    if (state.format === 'randomizer') {
+      t2.style.display = 'block';
+    } else {
+      t2.style.display = 'none';
+    }
+    goToStep(3);
+  });
+});
+
+function renderUploadSlots() {
+  const container = document.getElementById('uploadSlots');
+  container.innerHTML = '';
+  for (let i = 0; i < state.slots; i++) {
+    const block = document.createElement('div');
+    block.className = 'upload-block';
+    block.innerHTML = `
+      <div class="upload-label">Photo ${i + 1} <span id="check${i}"></span></div>
+      <input type="file" accept="image/*" id="file${i}">
+      <img class="preview-img" id="preview${i}" style="display:none">
+    `;
+    container.appendChild(block);
+    document.getElementById('file' + i).addEventListener('change', (e) => handleUpload(e, i));
+  }
+  // Reset the next button to disabled when entering this step
+  document.getElementById('toStep4').disabled = true;
+}
+
+function handleUpload(e, i) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    state.photos[i] = ev.target.result;
+    document.getElementById('check' + i).textContent = '✓';
+    const img = document.getElementById('preview' + i);
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    updateNextButton();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateNextButton() {
+  const filled = state.photos.filter(Boolean).length;
+  document.getElementById('toStep4').disabled = filled < state.slots;
+}
+
+// Text inputs
+document.getElementById('textInput').addEventListener('input', (e) => {
+  state.text = e.target.value;
+  updateGenerateBtn();
+});
+document.getElementById('textInput2').addEventListener('input', (e) => {
+  state.text2 = e.target.value;
+  updateGenerateBtn();
+});
+
+function updateGenerateBtn() {
+  // Need at least the first text. (Second is optional even for randomizer.)
+  document.getElementById('generateBtn').disabled = !state.text.trim();
+}
+
+function generate() {
+  // Fresh randomizer seed each Generate
+  state.seed = Math.random() * 1e9 | 0;
+  // Show/hide reroll button on result screen
+  document.getElementById('rerollBtn').style.display =
+    state.format === 'randomizer' ? '' : 'none';
+  goToStep(5);
+}
+
+function rerollRandomizer() {
+  state.seed = Math.random() * 1e9 | 0;
+  drawCanvas();
+}
+
+async function drawCanvas() {
+  const canvas = document.getElementById('canvas');
+  const size = 1080;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Background: image or white fallback
+  if (state.background) {
+    const bgImg = await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.src = state.background;
+    });
+    // cover-fit the background to the full canvas
+    drawCover(ctx, bgImg, 0, 0, size, size);
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+  }
+
+  // Preload all photos
+  const loadedImages = await Promise.all(state.photos.map(src => {
+    if (!src) return null;
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.src = src;
+    });
+  }));
+
+  // Dispatch to layout
+  if (state.format === 'two-up') {
+    drawTwoUp(ctx, size, loadedImages);
+  } else if (state.format === 'three-up') {
+    drawThreeUp(ctx, size, loadedImages);
+  } else if (state.format === 'text-wrap') {
+    drawTextWrap(ctx, size, loadedImages);
+  } else if (state.format === 'overlap') {
+    drawOverlap(ctx, size, loadedImages);
+  } else if (state.format === 'randomizer') {
+    drawRandomizer(ctx, size, loadedImages);
+  }
+}
+
+// Helper: draw image into a box with cover-fit
+function drawCover(ctx, img, x, y, w, h) {
+  if (!img) return;
+  const imgRatio = img.width / img.height;
+  const boxRatio = w / h;
+  let sx, sy, sw, sh;
+  if (imgRatio > boxRatio) {
+    sh = img.height;
+    sw = img.height * boxRatio;
+    sx = (img.width - sw) / 2;
+    sy = 0;
+  } else {
+    sw = img.width;
+    sh = img.width / boxRatio;
+    sx = 0;
+    sy = (img.height - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+// Helper: word-wrap text into lines that fit a given width
+function wrapText(ctx, text, maxWidth) {
+  // First split by user's hard line breaks, then word-wrap each
+  const paragraphs = text.split('\n');
+  const allLines = [];
+  for (const para of paragraphs) {
+    if (!para.trim()) {
+      allLines.push('');
+      continue;
+    }
+    const words = para.split(' ');
+    let currentLine = '';
+    for (const word of words) {
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+        allLines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) allLines.push(currentLine);
+  }
+  return allLines;
+}
+
+// Layout 1: Two photos side by side, text underneath
+function drawTwoUp(ctx, size, imgs) {
+  const photoAreaTop = 140;
+  const photoHeight = 520;
+  const photoWidth = 420;
+  const gap = 60;
+  const totalPhotosWidth = photoWidth * 2 + gap;
+  const photosStartX = (size - totalPhotosWidth) / 2;
+
+  drawCover(ctx, imgs[0], photosStartX, photoAreaTop, photoWidth, photoHeight);
+  drawCover(ctx, imgs[1], photosStartX + photoWidth + gap, photoAreaTop, photoWidth, photoHeight);
+
+  // Text
+  ctx.fillStyle = '#000000';
+  ctx.font = '56px VT323, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const lines = wrapText(ctx, state.text, size - 160);
+  const textStartY = photoAreaTop + photoHeight + 60;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, size / 2, textStartY + i * 64);
+  });
+}
+
+// Layout 2: Three photos in a row, text underneath
+function drawThreeUp(ctx, size, imgs) {
+  const photoAreaTop = 200;
+  const photoHeight = 440;
+  const gap = 30;
+  const sideMargin = 60;
+  const photoWidth = (size - sideMargin * 2 - gap * 2) / 3;
+
+  for (let i = 0; i < 3; i++) {
+    drawCover(ctx, imgs[i], sideMargin + i * (photoWidth + gap), photoAreaTop, photoWidth, photoHeight);
+  }
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '56px VT323, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const lines = wrapText(ctx, state.text, size - 160);
+  const textStartY = photoAreaTop + photoHeight + 60;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, size / 2, textStartY + i * 64);
+  });
+}
+
+// Layout 3: One centered photo with text wrapping around it
+function drawTextWrap(ctx, size, imgs) {
+  const photoSize = 440;
+  const photoX = (size - photoSize) / 2;
+  const photoY = (size - photoSize) / 2;
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '40px VT323, monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  const sideMargin = 60;
+  const lineHeight = 46;
+  const photoBuffer = 30; // gap between text columns and photo
+  const fullWidth = size - sideMargin * 2;
+  const leftColWidth = photoX - sideMargin - photoBuffer;
+  const rightColWidth = size - (photoX + photoSize) - sideMargin - photoBuffer;
+
+  // We have a starting line at top, then for lines that fall in the photo's vertical range
+  // we split into left + right columns. Then full width below.
+  // Approach: pre-flow the text into lines, choosing maxWidth based on what y the line would land at.
+
+  // Generate a flat sequence of lines, but adjust wrap width based on current y.
+  // Strategy: simulate y position as we go. If y is within photo range, use the narrower column widths.
+  // Within photo y-range we alternate left then right column.
+
+  // Pre-tokenize text respecting hard line breaks
+  const tokens = [];
+  const paras = state.text.split('\n');
+  paras.forEach((p, idx) => {
+    const words = p.split(' ').filter(Boolean);
+    words.forEach(w => tokens.push({ type: 'word', value: w }));
+    if (idx < paras.length - 1) tokens.push({ type: 'break' });
+  });
+
+  // We'll produce an array of {x, y, text} draws.
+  const draws = [];
+  let y = sideMargin;
+  let i = 0;
+  let column = 'full'; // 'full' | 'left' | 'right'
+
+  function isInPhotoRange(yy) {
+    return yy + lineHeight > photoY && yy < photoY + photoSize;
+  }
+
+  function currentMaxWidth() {
+    if (column === 'left') return leftColWidth;
+    if (column === 'right') return rightColWidth;
+    return fullWidth;
+  }
+
+  function currentX() {
+    if (column === 'left') return sideMargin;
+    if (column === 'right') return photoX + photoSize + photoBuffer;
+    return sideMargin;
+  }
+
+  // Build lines one at a time
+  while (i < tokens.length && y + lineHeight < size - sideMargin) {
+    // Decide column for this line based on y
+    if (isInPhotoRange(y)) {
+      if (column === 'full') column = 'left';
+    } else {
+      column = 'full';
+    }
+
+    const maxW = currentMaxWidth();
+    let line = '';
+    let advanced = false;
+
+    while (i < tokens.length) {
+      const t = tokens[i];
+      if (t.type === 'break') {
+        i++;
+        advanced = true;
+        break;
+      }
+      const test = line ? line + ' ' + t.value : t.value;
+      if (ctx.measureText(test).width > maxW && line) {
+        break;
+      }
+      line = test;
+      i++;
+      advanced = true;
+    }
+
+    if (line) {
+      draws.push({ x: currentX(), y, text: line });
+    }
+
+    // Advance y / switch column
+    if (column === 'left') {
+      // Next line goes to right column at same y
+      column = 'right';
+      // do not advance y
+    } else if (column === 'right') {
+      // Move to next row
+      column = 'full';
+      y += lineHeight;
+    } else {
+      y += lineHeight;
+    }
+
+    if (!advanced) break; // safety
+  }
+
+  // Draw photo first (so text columns sit cleanly beside it)
+  drawCover(ctx, imgs[0], photoX, photoY, photoSize, photoSize);
+
+  // Draw text
+  for (const d of draws) {
+    ctx.fillText(d.text, d.x, d.y);
+  }
+}
+
+// Layout 4: Two photos overlaid at 50% opacity (double exposure), text tiled around edges
+function drawOverlap(ctx, size, imgs) {
+  const margin = 90; // border band where text lives
+  const photoArea = size - margin * 2;
+
+  // Helper: draw image FULLY contained (not cropped), centered in a square area
+  function drawContained(img, areaX, areaY, areaSize, opacity) {
+    if (!img) return;
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    const imgRatio = img.width / img.height;
+    let w, h;
+    if (imgRatio > 1) {
+      w = areaSize;
+      h = areaSize / imgRatio;
+    } else {
+      h = areaSize;
+      w = areaSize * imgRatio;
+    }
+    const x = areaX + (areaSize - w) / 2;
+    const y = areaY + (areaSize - h) / 2;
+    ctx.drawImage(img, x, y, w, h);
+    ctx.restore();
+  }
+
+  // Both photos overlaid, each at 50% opacity
+  drawContained(imgs[0], margin, margin, photoArea, 0.5);
+  drawContained(imgs[1], margin, margin, photoArea, 0.5);
+
+  // Tile text around the edges as a frame
+  const userText = state.text.trim();
+  if (!userText) return;
+
+  const separator = '   •   ';
+  const tile = userText + separator;
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '32px VT323, monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  // Build a string long enough to fill `targetLen` pixels, repeating the tile
+  function repeatToFill(targetLen) {
+    const tileW = ctx.measureText(tile).width;
+    if (tileW === 0) return tile;
+    const count = Math.ceil(targetLen / tileW) + 1;
+    return tile.repeat(count);
+  }
+
+  const edgeLen = size; // full edge runs corner to corner
+  const filled = repeatToFill(edgeLen);
+
+  // TOP — read left-to-right, vertically centered in top margin band
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, size, margin);
+  ctx.clip();
+  ctx.fillText(filled, 0, margin / 2);
+  ctx.restore();
+
+  // BOTTOM — read left-to-right
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, size - margin, size, margin);
+  ctx.clip();
+  ctx.fillText(filled, 0, size - margin / 2);
+  ctx.restore();
+
+  // LEFT — rotated so text reads bottom-to-top
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, margin, size);
+  ctx.clip();
+  ctx.translate(margin / 2, size);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(filled, 0, 0);
+  ctx.restore();
+
+  // RIGHT — rotated so text reads top-to-bottom
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(size - margin, 0, margin, size);
+  ctx.clip();
+  ctx.translate(size - margin / 2, 0);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillText(filled, 0, 0);
+  ctx.restore();
+}
+
+// Seeded RNG so re-rolls are deterministic per seed but vary between seeds
+function makeRng(seed) {
+  let s = seed | 0;
+  return function() {
+    // mulberry32
+    s = (s + 0x6D2B79F5) | 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Layout 5: Randomizer — both photos placed at random position/rotation/size, both text lines too
+function drawRandomizer(ctx, size, imgs) {
+  const rand = makeRng(state.seed || 1);
+  const randRange = (a, b) => a + rand() * (b - a);
+
+  // Pad so things don't sit right at the edge
+  const pad = 60;
+
+  // Helper: fit an image into a given square area, contain (no crop), preserving aspect
+  function containSize(img, target) {
+    const r = img.width / img.height;
+    if (r > 1) return { w: target, h: target / r };
+    return { w: target * r, h: target };
+  }
+
+  // Draw a photo at a random position, sized within a random range. No rotation.
+  function placePhoto(img) {
+    if (!img) return;
+    // Photo "envelope" is between 35% and 60% of canvas
+    const targetSize = randRange(size * 0.35, size * 0.6);
+    const { w, h } = containSize(img, targetSize);
+
+    const cx = randRange(pad + w / 2, size - pad - w / 2);
+    const cy = randRange(pad + h / 2, size - pad - h / 2);
+
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  }
+
+  placePhoto(imgs[0]);
+  placePhoto(imgs[1]);
+
+  // Draw a text line at a random position. No rotation.
+  function placeText(text) {
+    if (!text || !text.trim()) return;
+    const fontSize = Math.round(randRange(40, 80));
+    ctx.font = fontSize + 'px VT323, monospace';
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const textWidth = ctx.measureText(text).width;
+    const textHeight = fontSize * 1.1;
+
+    const minX = pad + textWidth / 2;
+    const maxX = size - pad - textWidth / 2;
+    const minY = pad + textHeight / 2;
+    const maxY = size - pad - textHeight / 2;
+
+    // If text too long for canvas, just center horizontally
+    const cx = maxX > minX ? randRange(minX, maxX) : size / 2;
+    const cy = maxY > minY ? randRange(minY, maxY) : size / 2;
+
+    ctx.fillText(text, cx, cy);
+  }
+
+  placeText(state.text);
+  placeText(state.text2);
+}
+
+function downloadImage() {
+  const canvas = document.getElementById('canvas');
+
+  canvas.toBlob(function(blob) {
+    if (!blob) {
+      alert('Image generation failed. Try regenerating.');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+
+    // Show fullscreen image - user long-presses to save
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;overflow-y:auto;padding:20px;box-sizing:border-box;';
+    overlay.innerHTML = `
+      <div style="max-width:600px;margin:0 auto;text-align:center;">
+        <p style="color:#e0e0e0;font-family:VT323,monospace;font-size:24px;margin:0 0 8px;">LONG-PRESS THE IMAGE</p>
+        <p style="color:#999;font-family:VT323,monospace;font-size:18px;margin:0 0 20px;">then tap "Download image" or "Save image"</p>
+        <img src="${url}" style="width:100%;max-width:500px;border:2px solid #333;display:block;margin:0 auto 20px;">
+        <button id="closeOverlay" style="padding:16px 40px;font-family:VT323,monospace;font-size:22px;background:#e0e0e0;color:#0a0a0a;border:none;cursor:pointer;">Close</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('closeOverlay').addEventListener('click', () => {
+      URL.revokeObjectURL(url);
+      overlay.remove();
+    });
+  }, 'image/png');
+}
+
+function reset() {
+  state = { step: 1, background: null, format: 'two-up', slots: 2, photos: [], text: '', text2: '', seed: 0 };
+  document.getElementById('textInput').value = '';
+  document.getElementById('textInput2').value = '';
+  document.getElementById('textInput2').style.display = 'none';
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('toStep4').disabled = true;
+  document.getElementById('toStep2').disabled = true;
+  document.getElementById('bgFile').value = '';
+  document.getElementById('bgCheck').textContent = '';
+  document.getElementById('bgPreview').style.display = 'none';
+  document.getElementById('rerollBtn').style.display = 'none';
+  goToStep(1);
+}
+
+// Wait for font to load before allowing canvas draws
+document.fonts.ready.then(() => {
+  // font ready
+});
+</script>
+
+</body>
+</html>
