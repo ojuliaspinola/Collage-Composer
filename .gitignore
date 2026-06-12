@@ -4,5 +4,8 @@
 node_modules/
 *.log
 
+# Local preview tooling (machine-specific paths)
+.claude/
+
 # Redundant binary archive of the v1 files (the files themselves are tracked)
 ComposerV1.zip
