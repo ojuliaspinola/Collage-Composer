@@ -241,6 +241,21 @@
 <div class="screen" id="screen5">
   <h2>Download</h2>
   <canvas id="canvas"></canvas>
+  <div class="text-controls" id="resultControls">
+    <label class="text-control">
+      <span>Font</span>
+      <select id="resultFont">
+        <option value="vt323">Terminal (VT323)</option>
+        <option value="cursive">Cursive</option>
+        <option value="serif">Serif (Times)</option>
+        <option value="sans">Sans (Arial)</option>
+      </select>
+    </label>
+    <label class="text-control">
+      <span>Colour</span>
+      <input type="color" id="resultColor" value="#000000">
+    </label>
+  </div>
   <div class="btn-row">
     <button class="btn btn-secondary" onclick="goBack()">Back</button>
     <button class="btn btn-primary" onclick="downloadImage()">Save Image</button>
@@ -299,7 +314,12 @@ function showScreen(id) {
 
   if (id === 'screen3') renderUploadSlots();
   if (id === 'screen4') renderTextInputs();
-  if (id === 'screen5') setTimeout(drawCanvas, 50);
+  if (id === 'screen5') {
+    document.getElementById('resultFont').value = state.fontKey;
+    document.getElementById('resultColor').value = state.textColor;
+    document.getElementById('resultControls').style.display = state.textCount > 0 ? '' : 'none';
+    setTimeout(drawCanvas, 50);
+  }
 }
 
 function goNext() {
@@ -381,6 +401,17 @@ document.getElementById('fontSelect').addEventListener('change', (e) => {
 });
 document.getElementById('colorSelect').addEventListener('input', (e) => {
   state.textColor = e.target.value;
+});
+
+// Same controls on the result screen — live re-render so legibility can be
+// fixed against the actual background (random mode keeps its scatter/seed).
+document.getElementById('resultFont').addEventListener('change', (e) => {
+  state.fontKey = e.target.value;
+  drawCanvas();
+});
+document.getElementById('resultColor').addEventListener('input', (e) => {
+  state.textColor = e.target.value;
+  drawCanvas();
 });
 
 /* ---------- Step 3: photo uploads ---------- */
