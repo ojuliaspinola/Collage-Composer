@@ -125,6 +125,12 @@
     color: #e0e0e0;
     border: 2px solid #333;
   }
+  .ratio-btn {
+    display: block; width: 100%; padding: 20px; margin-bottom: 12px;
+    background: #1a1a1a; border: 2px solid #333; color: #e0e0e0;
+    font-family: 'VT323', monospace; font-size: 24px; cursor: pointer; text-align: left;
+  }
+  .ratio-btn.active { background: #e0e0e0; color: #0a0a0a; }
   canvas {
     width: 100%;
     max-width: 500px;
@@ -152,9 +158,20 @@
 <h1>COLLAGE COMPOSER</h1>
 <p class="step-label">Step <span id="stepNum">1</span> of <span id="stepTotal">5</span></p>
 
-<!-- Step 1: Background -->
-<div class="screen active" id="screen1">
-  <h2>1. Choose background</h2>
+<!-- Step 1: Aspect ratio -->
+<div class="screen active" id="screenAspect">
+  <h2>1. Choose size</h2>
+  <button class="ratio-btn" data-ratio="landscape">16:9 &middot; Landscape</button>
+  <button class="ratio-btn" data-ratio="square">1:1 &middot; Square</button>
+  <button class="ratio-btn" data-ratio="portrait">3:4 &middot; Portrait</button>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="goNext()">Next</button>
+  </div>
+</div>
+
+<!-- Step 2: Background -->
+<div class="screen" id="screen1">
+  <h2>2. Choose background</h2>
   <div class="upload-block">
     <div class="upload-label">Background image <span id="bgCheck"></span></div>
     <input type="file" accept="image/*" id="bgFile">
@@ -164,13 +181,14 @@
     <button class="btn btn-secondary" id="bgWhiteBtn" style="width:100%;">Or use plain white</button>
   </div>
   <div class="btn-row">
+    <button class="btn btn-secondary" onclick="goBack()">Back</button>
     <button class="btn btn-primary" id="bgNextBtn" onclick="goNext()" disabled>Next</button>
   </div>
 </div>
 
 <!-- Step 2: Format -->
 <div class="screen" id="screen2">
-  <h2>2. Choose format</h2>
+  <h2>3. Choose format</h2>
 
   <div class="control-row">
     <span class="control-label"># of photos</span>
@@ -204,7 +222,7 @@
 
 <!-- Step 3: Upload photos -->
 <div class="screen" id="screen3">
-  <h2>3. Upload photos</h2>
+  <h2>4. Upload photos</h2>
   <div id="uploadSlots"></div>
   <div class="btn-row">
     <button class="btn btn-secondary" onclick="goBack()">Back</button>
@@ -214,7 +232,7 @@
 
 <!-- Step 4: Text -->
 <div class="screen" id="screen4">
-  <h2>4. Write text</h2>
+  <h2>5. Write text</h2>
   <div class="text-controls">
     <label class="text-control">
       <span>Font</span>
@@ -266,6 +284,7 @@
 
 <script>
 let state = {
+  ratio: 'square',    // 'landscape' | 'square' | 'portrait'
   background: null,   // data URL or null (=> white)
   photoCount: 2,      // 1..4
   textCount: 1,       // 0..3
@@ -281,6 +300,15 @@ const PHOTO_MIN = 1, PHOTO_MAX = 4;
 const TEXT_MIN = 0, TEXT_MAX = 3;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// Canvas dimensions per aspect ratio. The min dimension stays 1080 so the
+// text / margin / watermark constants (tuned for 1080) read consistently
+// across ratios — only the canvas extent changes.
+const RATIOS = {
+  landscape: { label: '16:9 Landscape', w: 1920, h: 1080 },
+  square:    { label: '1:1 Square',     w: 1080, h: 1080 },
+  portrait:  { label: '3:4 Portrait',   w: 1080, h: 1440 },
+};
+
 // Text fonts for the composition (NOT the app UI, which stays VT323).
 // Each stack prefers the native font, then a metric-compatible web fallback.
 const FONTS = {
@@ -292,11 +320,11 @@ const FONTS = {
 const currentFontStack = () => (FONTS[state.fontKey] || FONTS.vt323).stack;
 const currentTextColor = () => state.textColor || '#000000';
 
-let currentScreen = 'screen1';
+let currentScreen = 'screenAspect';
 
 // The active screens in order. Text step is skipped when textCount is 0.
 function flowScreens() {
-  const f = ['screen1', 'screen2', 'screen3'];
+  const f = ['screenAspect', 'screen1', 'screen2', 'screen3'];
   if (state.textCount > 0) f.push('screen4');
   f.push('screen5');
   return f;
@@ -337,7 +365,20 @@ function goBack() {
   if (idx > 0) showScreen(flow[idx - 1]);
 }
 
-/* ---------- Step 1: background ---------- */
+/* ---------- Step 1 controls: aspect ratio ---------- */
+document.querySelectorAll('.ratio-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.ratio = btn.dataset.ratio;
+    updateRatioUI();
+  });
+});
+function updateRatioUI() {
+  document.querySelectorAll('.ratio-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.ratio === state.ratio);
+  });
+}
+
+/* ---------- Step 2: background ---------- */
 document.getElementById('bgFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -515,18 +556,19 @@ function reroll() {
 
 async function drawCanvas() {
   const canvas = document.getElementById('canvas');
-  const size = 1080;
-  canvas.width = size;
-  canvas.height = size;
+  const r = RATIOS[state.ratio] || RATIOS.square;
+  const W = r.w, H = r.h;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext('2d');
 
   // Background: image (cover-fit) or white fallback
   if (state.background) {
     const bgImg = await loadImage(state.background);
-    drawCover(ctx, bgImg, 0, 0, size, size);
+    drawCover(ctx, bgImg, 0, 0, W, H);
   } else {
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, W, H);
   }
 
   const imgs = await Promise.all(
@@ -539,13 +581,13 @@ async function drawCanvas() {
   try { await document.fonts.load('64px "' + selFont.load + '"'); } catch (e) {}
 
   if (state.mode === 'aligned') {
-    drawAligned(ctx, size, imgs, texts);
+    drawAligned(ctx, W, H, imgs, texts);
   } else {
-    drawRandom(ctx, size, imgs, texts);
+    drawRandom(ctx, W, H, imgs, texts);
   }
 
   // Signature watermark, painted last so it always sits on top
-  await drawWatermark(ctx, size);
+  await drawWatermark(ctx, W, H);
 }
 
 // Hand-drawn spiral signature, embedded as a data URI so the app stays a single
@@ -557,9 +599,13 @@ function watermarkImage() {
   if (!_watermarkPromise) _watermarkPromise = loadImage(WATERMARK_SRC);
   return _watermarkPromise;
 }
-async function drawWatermark(ctx, size) {
+async function drawWatermark(ctx, W, H) {
   const img = await watermarkImage();
-  ctx.drawImage(img, 0, 0, size, size);
+  // The watermark PNG is square with the spiral in its bottom-right corner.
+  // Anchor it to the canvas bottom-right at square scale so the spiral keeps
+  // its size and shape on any aspect ratio (for square it's identical to before).
+  const S = Math.min(W, H);
+  ctx.drawImage(img, W - S, H - S, S, S);
 }
 
 function loadImage(src) {
@@ -616,7 +662,7 @@ function wrapText(ctx, text, maxWidth) {
 // 1 -> single, 2 -> side by side, 3 -> row of three, 4 -> 2x2 grid
 const PHOTO_GRID = { 1: [1, 1], 2: [2, 1], 3: [3, 1], 4: [2, 2] };
 
-function drawAligned(ctx, size, imgs, texts) {
+function drawAligned(ctx, W, H, imgs, texts) {
   const sideMargin = 70;
   const topMargin = 110;
   const bottomMargin = 90;
@@ -630,7 +676,7 @@ function drawAligned(ctx, size, imgs, texts) {
   const lineHeight = 60;
   const blockGap = 28;
   ctx.font = textFontSize + 'px ' + currentFontStack();
-  const textMaxWidth = size - sideMargin * 2;
+  const textMaxWidth = W - sideMargin * 2;
   const blocks = texts
     .filter(t => t && t.trim())
     .map(t => wrapText(ctx, t, textMaxWidth));
@@ -644,11 +690,11 @@ function drawAligned(ctx, size, imgs, texts) {
 
   // Photo region (everything above the reserved text band)
   const photoTop = topMargin;
-  let photoBottom = size - bottomMargin - textHeight - gapPhotoText;
+  let photoBottom = H - bottomMargin - textHeight - gapPhotoText;
   // Guard: always leave a reasonable photo region even if text is very tall
   photoBottom = Math.max(photoTop + 240, photoBottom);
 
-  const regionW = size - sideMargin * 2;
+  const regionW = W - sideMargin * 2;
   const regionH = photoBottom - photoTop;
   const cellW = (regionW - (cols - 1) * gap) / cols;
   const cellH = (regionH - (rows - 1) * gap) / rows;
@@ -670,7 +716,7 @@ function drawAligned(ctx, size, imgs, texts) {
     let y = photoBottom + gapPhotoText;
     blocks.forEach((lines, bi) => {
       lines.forEach(line => {
-        ctx.fillText(line, size / 2, y);
+        ctx.fillText(line, W / 2, y);
         y += lineHeight;
       });
       if (bi < blocks.length - 1) y += blockGap;
@@ -691,10 +737,11 @@ function makeRng(seed) {
   };
 }
 
-function drawRandom(ctx, size, imgs, texts) {
+function drawRandom(ctx, W, H, imgs, texts) {
   const rand = makeRng(state.seed || 1);
   const randRange = (a, b) => a + rand() * (b - a);
   const pad = 60;
+  const M = Math.min(W, H);
 
   // Contain-fit (no crop) an image into a target square
   function containSize(img, target) {
@@ -705,10 +752,10 @@ function drawRandom(ctx, size, imgs, texts) {
   // Photos at random position/size (no rotation — kept upright)
   imgs.forEach(img => {
     if (!img) return;
-    const targetSize = randRange(size * 0.35, size * 0.6);
+    const targetSize = randRange(M * 0.35, M * 0.6);
     const { w, h } = containSize(img, targetSize);
-    const cx = randRange(pad + w / 2, size - pad - w / 2);
-    const cy = randRange(pad + h / 2, size - pad - h / 2);
+    const cx = randRange(pad + w / 2, W - pad - w / 2);
+    const cy = randRange(pad + h / 2, H - pad - h / 2);
     ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   });
 
@@ -724,11 +771,11 @@ function drawRandom(ctx, size, imgs, texts) {
     const textWidth = ctx.measureText(text).width;
     const textHeight = fontSize * 1.1;
     const minX = pad + textWidth / 2;
-    const maxX = size - pad - textWidth / 2;
+    const maxX = W - pad - textWidth / 2;
     const minY = pad + textHeight / 2;
-    const maxY = size - pad - textHeight / 2;
-    const cx = maxX > minX ? randRange(minX, maxX) : size / 2;
-    const cy = maxY > minY ? randRange(minY, maxY) : size / 2;
+    const maxY = H - pad - textHeight / 2;
+    const cx = maxX > minX ? randRange(minX, maxX) : W / 2;
+    const cy = maxY > minY ? randRange(minY, maxY) : H / 2;
 
     ctx.fillText(text, cx, cy);
   });
@@ -764,6 +811,7 @@ function downloadImage() {
 /* ---------- Reset ---------- */
 function reset() {
   state = {
+    ratio: 'square',
     background: null,
     photoCount: 2,
     textCount: 1,
@@ -783,12 +831,15 @@ function reset() {
   document.getElementById('rerollBtn').style.display = 'none';
   updateStepperDisplay();
   updateToggleUI();
-  showScreen('screen1');
+  updateRatioUI();
+  showScreen('screenAspect');
 }
 
-// Initial paint of the format controls
+// Initial paint of the controls + show the first screen with the right step count
 updateStepperDisplay();
 updateToggleUI();
+updateRatioUI();
+showScreen('screenAspect');
 </script>
 
 </body>
